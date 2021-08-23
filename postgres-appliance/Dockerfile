@@ -175,7 +175,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} \
                     postgresql-${version}-cron postgresql-${version}-pgq3 \
-                    postgresql-${version}-pg-stat-kcache $EXTRAS \
+                    postgresql-${version}-pg-stat-kcache pgagent $EXTRAS \
 \
             # Install 3rd party stuff
             && cd timescaledb \
