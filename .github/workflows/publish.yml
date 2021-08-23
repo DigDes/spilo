@@ -20,7 +20,7 @@ jobs:
     run: echo "Build number is $BUILD_NUMBER"
   - uses: actions/checkout@v2
   - name: Build the Docker image
-    run: docker build ./postgres-appliance --tag ghcr.io/digdes/$IMAGE_NAME:$BUILD_NUMBER
+    run: docker build ./postgres-appliance --build-arg PGVERSION=13 --build-arg ADDITIONAL_LOCALES=ru_RU --build-arg PGOLDVERSIONS= --tag ghcr.io/digdes/$IMAGE_NAME:$BUILD_NUMBER
   - name: Log into GitHub Container Registry
     run: echo ${{ secrets.GITHUB_TOKEN }} | docker login -u DigDes --password-stdin ghcr.io
   - name: Push image to GitHub Container Registry
