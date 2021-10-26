@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
-ARG PGVERSION=13
-ARG TIMESCALEDB="1.7.5 2.3.1 2.4.1"
+ARG PGVERSION=14
+ARG TIMESCALEDB="1.7.5 2.3.1 2.4.2"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -66,25 +66,26 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
+COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.5 9.6 10 11 12"
+ARG PGOLDVERSIONS="9.6 10 11 12 13"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
-    POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=1f3461dda893c14778c02b5968d4c83a5d4d8e7d \
+    POSTGIS_LEGACY=3.1 \
+    BG_MON_COMMIT=b81800d9d45d112ef402eca7588d24364198417b \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
-    SET_USER=REL2_0_1 \
+    SET_USER=REL3_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
@@ -103,7 +104,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
@@ -152,10 +153,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
-                        postgresql-${version}-pgl-ddl-deploy \
-                        postgresql-${version}-pglogical \
-                        postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
@@ -163,6 +160,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
+                && if [ $version != "14" ]; then \
+                    EXTRAS="$EXTRAS \
+                        postgresql-${version}-pgl-ddl-deploy \
+                        postgresql-${version}-pglogical \
+                        postgresql-${version}-pglogical-ticker \
+                        postgresql-${version}-pldebugger"; \
+                fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
@@ -194,14 +198,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && cd .. \
 \
             && if [ "$DEMO" != "true" ]; then \
-                if [ ${version%.*} -lt 11 ]; then \
-                    for extension in quantile trimmed_aggregates; do \
-                        pgxn install $extension \
-                        && strip /usr/lib/postgresql/$version/lib/$extension.so; \
-                    done; \
-                fi \
-\
-                && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
+                EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
                 && if [ ${version%.*} -ge 10 ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
@@ -218,7 +215,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
+    && apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
@@ -235,8 +232,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     # build and install missing packages
     && for pkg in pgextwlist; do \
-        apt-get source postgresql-$PGVERSION-${pkg} \
+        apt-get source postgresql-13-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
+        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
             sed -i '/postgresql-all/d' debian/control.in \
             # make it possible to use it from shared_preload_libraries
@@ -257,7 +255,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -307,7 +305,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         && d2="$d1" \
                         && d1="../../${v1##*/}/$d1" \
                         && if [ "${d2%-*}" = "contrib/postgis" ]; then \
-                            if  [ "${v2##*/}" = "9.5" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi \
+                            if  [ "${v2##*/}" = "9.6" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi \
                             && d1="../$d1"; \
                         fi \
                         && d2="$v2/$d2" \
@@ -348,7 +346,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=2.1.1
 ENV WALE_VERSION=1.1.1
-ENV WALG_VERSION=v0.2.19
+ENV WALG_VERSION=v1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -365,8 +363,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.tar.gz \
+        && DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
                 | tar -C /usr/local/bin -xz \
+        && mv /usr/local/bin/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64 /usr/local/bin/wal-g \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-cachetools \
@@ -374,7 +374,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance

@@ -29,9 +29,20 @@ Environment Configuration Settings
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CA_FILE**: path to the SSL CA certificate file inside the container (by default: '')
 - **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
-- **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
-- **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
-- **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set)
+- **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default /run/certs/server.crt), Spilo will generate one if not present.
+- **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default /run/certs/server.key), Spilo will generate one if not present
+- **SSL_CA**: content of the SSL CA certificate in the SSL_CA_FILE file (by default: '')
+- **SSL_CRL**: content of the SSL Certificate Revocation List in the SSL_CRL_FILE file (by default: '')
+- **SSL_CERTIFICATE**: content of the SSL certificate in the SSL_CERTIFICATE_FILE file (by default /run/certs/server.crt).
+- **SSL_PRIVATE_KEY**: content of the SSL private key in the SSL_PRIVATE_KEY_FILE file (by default /run/certs/server.key).
+- **SSL_RESTAPI_CA_FILE**: path to the Patroni REST Api SSL CA certificate file inside the container (by default: '')
+- **SSL_RESTAPI_CERTIFICATE_FILE**: path to the Patroni REST Api SSL certificate file inside the container (by default /run/certs/restapi.crt), Spilo will generate one if not present.
+- **SSL_RESTAPI_PRIVATE_KEY_FILE**: path to the Patroni REST Api SSL private key within the container (by default /run/certs/restapi.key), Spilo will generate one if not present
+- **SSL_RESTAPI_CA**: content of the Patroni REST Api SSL CA certificate in the SSL_RESTAPI_CA_FILE file (by default: '')
+- **SSL_RESTAPI_CERTIFICATE**: content of the REST Api SSL certificate in the SSL_CERTIFICATE_FILE file (by default /run/certs/server.crt).
+- **SSL_RESTAPI_PRIVATE_KEY**: content of the REST Api SSL private key in the SSL_PRIVATE_KEY_FILE file (by default /run/certs/server.key).
+- **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set).
+- **RESTAPI_CONNECT_ADDRESS**: when you configure Patroni RESTAPI in SSL mode some safe API (i.e. switchover) perform hostname validation. In this case could be convenient configure ````restapi.connect_address````as a hostname instead of IP. For example, you can configure it as "$(POD_NAME).<service name>".
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_ENV_DIR**: directory where to store WAL-E environment variables
@@ -89,7 +100,19 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 
 - **USE_WALG_BACKUP**: (optional) Enforce using `wal-g` instead of `wal-e` for backups (Boolean)
 - **USE_WALG_RESTORE**: (optional) Enforce using `wal-g` instead of `wal-e` for restores (Boolean)
-- **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
-- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g.
+
+- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**, **WALG_DISK_RATE_LIMIT**, **WALG_NETWORK_RATE_LIMIT**, **WALG_COMPRESSION_METHOD**, **WALG_BACKUP_COMPRESSION_METHOD**, **WALG_BACKUP_FROM_REPLICA**, **WALG_SENTINEL_USER_DATA**, **WALG_PREVENT_WAL_OVERWRITE**: (optional) configuration options for wal-g.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
+
+Azure Specific WAL-G Configuration
+`````
+
+For more inforamation on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure
+
+- **WALG_AZ_PREFIX**: Enables Azure Backups. The azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
+- **AZURE_STORAGE_ACCOUNT**
+- **AZURE_STORAGE_ACCESS_KEY**
+- **AZURE_STORAGE_SAS_TOKEN**
+- **WALG_AZURE_BUFFER_SIZE**
+- **WALG_AZURE_MAX_BUFFERS**
